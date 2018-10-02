@@ -40,6 +40,18 @@ type AsyncProducer interface {
 	// together in a single select statement.
 	Successes() <-chan *ProducerMessage
 
+	// UpdateLeader instructs the producer to refresh the leader for the
+	// provided topic+partition.  Keeping leadership information up to date is
+	// handled automatically if retries are enabled.  If retries are disabled by
+	// the configuration, then the application should call this function in case
+	// of an ErrNotLeaderForPartition.  Otherwise, the metadata will not be
+	// updated until the next refresh per the Config.Metadata.RefreshFrequency
+	// and produce requests will continue to fail in the interim.  The refresh
+	// is performed lazily and asynchronously the next time a message is sent to
+	// the partition, and if an error is encountered, it will be reported as a
+	// ProducerError.
+	UpdateLeader(topic string, partition int32)
+
 	// Errors is the error output channel back to the user. You MUST read from this
 	// channel or the Producer will deadlock when the channel is full. Alternatively,
 	// you can set Producer.Return.Errors in your config to false, which prevents
@@ -105,9 +117,10 @@ func NewAsyncProducerFromClient(client Client) (AsyncProducer, error) {
 type flagSet int8
 
 const (
-	syn      flagSet = 1 << iota // first message from partitionProducer to brokerProducer
-	fin                          // final message from partitionProducer to brokerProducer and back
-	shutdown                     // start the shutdown process
+	syn          flagSet = 1 << iota // first message from partitionProducer to brokerProducer
+	fin                              // final message from partitionProducer to brokerProducer and back
+	shutdown                         // start the shutdown process
+	updateLeader                     // indicates the partitionProducer needs to update the leader
 )
 
 // ProducerMessage is the collection of elements passed to the Producer in order to send a message.
@@ -208,6 +221,10 @@ func (p *asyncProducer) Input() chan<- *ProducerMessage {
 	return p.input
 }
 
+func (p *asyncProducer) UpdateLeader(topic string, partition int32) {
+	p.input <- &ProducerMessage{Topic: topic, Partition: partition, flags: updateLeader}
+}
+
 func (p *asyncProducer) Close() error {
 	p.AsyncClose()
 
@@ -252,6 +269,14 @@ func (p *asyncProducer) dispatcher() {
 		if msg.flags&shutdown != 0 {
 			shuttingDown = true
 			p.inFlight.Done()
+			continue
+		} else if msg.flags&updateLeader == updateLeader {
+			// if the handler isn't in a map, then no need to do any work.  the
+			// metadata will be queried when the handler is created.
+			handler := handlers[msg.Topic]
+			if handler != nil {
+				handler <- msg
+			}
 			continue
 		} else if msg.retries == 0 {
 			if shuttingDown {
@@ -322,6 +347,15 @@ func (p *asyncProducer) newTopicProducer(topic string) chan<- *ProducerMessage {
 
 func (tp *topicProducer) dispatch() {
 	for msg := range tp.input {
+		if msg.flags&updateLeader == updateLeader {
+			// if the handler isn't in a map, then no need to do any work.  the
+			// metadata will be queried when the handler is created.
+			handler := tp.handlers[msg.Partition]
+			if handler != nil {
+				handler <- msg
+			}
+			continue
+		}
 		if msg.retries == 0 {
 			if err := tp.partitionMessage(msg); err != nil {
 				tp.parent.returnError(msg, err)
@@ -437,7 +471,11 @@ func (pp *partitionProducer) dispatch() {
 	}
 
 	for msg := range pp.input {
-		if msg.retries > pp.highWatermark {
+		if msg.flags&updateLeader == updateLeader {
+			pp.parent.unrefBrokerProducer(pp.leader, pp.output)
+			pp.output = nil
+			continue
+		} else if msg.retries > pp.highWatermark {
 			// a new, higher, retry level; handle it and then back off
 			pp.newHighWatermark(msg.retries)
 			time.Sleep(pp.parent.conf.Producer.Retry.Backoff)

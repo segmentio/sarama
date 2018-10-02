@@ -25,6 +25,18 @@ type SyncProducer interface {
 	// SendMessages will return an error.
 	SendMessages(msgs []*ProducerMessage) error
 
+	// UpdateLeader instructs the producer to refresh the leader for the
+	// provided topic+partition.  Keeping leadership information up to date is
+	// handled automatically if retries are enabled.  If retries are disabled by
+	// the configuration, then the application should call this function in case
+	// of an ErrNotLeaderForPartition.  Otherwise, the metadata will not be
+	// updated until the next refresh per the Config.Metadata.RefreshFrequency
+	// and produce requests will continue to fail in the interim.  The refresh
+	// is performed lazily and asynchronously the next time a message is sent to
+	// the partition, and if an error is encountered, it will be reported as a
+	// ProducerError.
+	UpdateLeader(topic string, partition int32)
+
 	// Close shuts down the producer and waits for any buffered messages to be
 	// flushed. You must call this function before a producer object passes out of
 	// scope, as it may otherwise leak memory. You must call this before calling
@@ -140,6 +152,10 @@ func (sp *syncProducer) handleErrors() {
 		expectation := err.Msg.expectation
 		expectation <- err
 	}
+}
+
+func (sp *syncProducer) UpdateLeader(topic string, partition int32) {
+	sp.producer.UpdateLeader(topic, partition)
 }
 
 func (sp *syncProducer) Close() error {

@@ -131,6 +131,12 @@ func (mp *AsyncProducer) Errors() <-chan *sarama.ProducerError {
 	return mp.errors
 }
 
+// Errors corresponds with the UpdateLeader method of sarama's Producer implementation.
+// Since this a mock implementation and there is no cluster from which to fetch
+// metadata, this method is a no-op.
+func (mp *AsyncProducer) UpdateLeader(topic string, partition int32) {
+}
+
 ////////////////////////////////////////////////
 // Setting expectations
 ////////////////////////////////////////////////
