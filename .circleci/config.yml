@@ -25,7 +25,9 @@ jobs:
           command: make vet
       - run:
           name: Test
-          command: make test
+          # in order to avoid recreating sarama's vagrant setup, we make the test
+          # think it's not running in CI so it skips the kafka integration tests
+          command: CI= make test
 
 workflows:
   version: 2
