@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Shopify/sarama"
+	"github.com/segmentio/sarama"
 )
 
 var (

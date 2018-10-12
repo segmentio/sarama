@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Shopify/sarama"
+	"github.com/segmentio/sarama"
 )
 
 var (
