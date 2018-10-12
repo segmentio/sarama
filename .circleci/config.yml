@@ -1,0 +1,38 @@
+version: 2
+jobs:
+  setup:
+    working_directory: /go/src/github.com/segmentio/sarama
+    docker:
+      - image: segment/circleci-golang:1.10
+    steps:
+      - checkout
+      - persist_to_workspace:
+          root: .
+          paths: [.]
+
+  test:
+    working_directory: /go/src/github.com/segmentio/sarama
+    docker:
+      - image: segment/circleci-golang:1.10
+
+    resource_class: large
+    steps:
+      - setup_remote_docker: { reusable: true, docker_layer_caching: true }
+      - attach_workspace: { at: . }
+      - run: go get -t
+      - run:
+          name: Vet
+          command: make vet
+      - run:
+          name: Test
+          command: make test
+
+workflows:
+  version: 2
+  run:
+    jobs:
+      - setup:
+          filters:
+            tags: { only: /.*/ }
+      - test:
+          requires: [setup]
