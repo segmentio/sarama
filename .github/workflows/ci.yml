@@ -4,26 +4,26 @@ on: [push, pull_request]
 jobs:
   lint:
     name: Linting with Go ${{ matrix.go-version }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-large
     strategy:
       fail-fast: false
       matrix:
         go-version: [1.19.x]
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744  # v3
     - name: Setup Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@be3c94b385c4f180051c996d336f57a34c397495  # v3
       with:
         go-version: ${{ matrix.go-version }}
     - name: golangci-lint
       env:
         GOFLAGS: -tags=functional
-      uses: golangci/golangci-lint-action@v3
+      uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc  # v3
       with:
         version: v1.48.0
   test:
     name: Unit Testing with Go ${{ matrix.go-version }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-large
     strategy:
       fail-fast: false
       matrix:
@@ -32,9 +32,9 @@ jobs:
       DEBUG: true
       GOFLAGS: -trimpath
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744  # v3
     - name: Setup Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@be3c94b385c4f180051c996d336f57a34c397495  # v3
       with:
         go-version: ${{ matrix.go-version }}
     - name: Get Go environment
@@ -43,7 +43,7 @@ jobs:
         echo "cache=$(go env GOCACHE)" >> $GITHUB_OUTPUT
         echo "modcache=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
     - name: Set up cache
-      uses: actions/cache@v3
+      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c  # v3
       with:
         path: |
           ${{ steps.go-env.outputs.cache }}

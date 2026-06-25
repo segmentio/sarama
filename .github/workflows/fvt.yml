@@ -4,7 +4,7 @@ on: [push, pull_request]
 jobs:
   fvt:
     name: Test with Kafka ${{ matrix.kafka-version }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-large
 
     # We want to run on external PRs, but not on our own internal PRs as they'll be run
     # by the push to the branch.
@@ -19,9 +19,9 @@ jobs:
       GOFLAGS: -trimpath
       KAFKA_VERSION: ${{ matrix.kafka-version }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744  # v3
     - name: Setup Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@be3c94b385c4f180051c996d336f57a34c397495  # v3
       with:
         go-version: ${{ matrix.go-version }}
     - name: Get Go environment
@@ -30,7 +30,7 @@ jobs:
         echo "cache=$(go env GOCACHE)" >> $GITHUB_OUTPUT
         echo "modcache=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
     - name: Set up cache
-      uses: actions/cache@v3
+      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c  # v3
       with:
         path: |
           ${{ steps.go-env.outputs.cache }}
